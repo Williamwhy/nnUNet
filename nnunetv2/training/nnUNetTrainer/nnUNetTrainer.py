@@ -1,3 +1,5 @@
+
+
 import inspect
 import multiprocessing
 import os
@@ -53,9 +55,9 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
-from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss, GDL_and_topk_loss, GDL_topk_focal_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss, MemoryEfficientGeneralizedDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
@@ -65,6 +67,25 @@ from nnunetv2.utilities.get_network_from_plans import get_network_from_plans
 from nnunetv2.utilities.helpers import empty_cache, dummy_context
 from nnunetv2.utilities.label_handling.label_handling import convert_labelmap_to_one_hot, determine_num_input_channels
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
+#from nnunetv2.training.loss.combined_loss import DiceCELossHD
+#from monai.metrics import compute_hausdorff_distance
+from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+# At the top of your trainer.py file
+#from nnunetv2.preprocessing.preprocessors import configuration_manager
+configuration_manager= ConfigurationManager
+target_spacing = configuration_manager.spacing
+try:
+    import wandb
+except ImportError:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "wandb"])
+    import wandb
+
+# pred and gt should be of shape [B, C, H, W, D] (one-hot or probabilities)
+# Let's assume shape [1, C, H, W, D]
+# If you only have label maps, convert them:
+
 
 
 class nnUNetTrainer(object):
@@ -87,9 +108,11 @@ class nnUNetTrainer(object):
         # https://www.osnews.com/images/comics/wtfm.jpg
         # https://i.pinimg.com/originals/26/b2/50/26b250a738ea4abc7a5af4d42ad93af0.jpg
 
+
         self.is_ddp = dist.is_available() and dist.is_initialized()
         self.local_rank = 0 if not self.is_ddp else dist.get_rank()
-
+        self.best_val_loss = float('inf')
+        self.best_val_epoch = -1
         self.device = device
 
         # print what device we are using
@@ -148,9 +171,23 @@ class nnUNetTrainer(object):
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 200
+        self.num_epochs = 20
         self.current_epoch = 0
         self.enable_deep_supervision = True
+        self.kweight = 10
+        
+        wandb.login(key="f0ca71ae6912c78891567a52c333cd3f61a8749a")
+        run = wandb.init(
+            project="nnUnetBaseline_Epoch0-20",  # Specify your project
+                  # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
+            name = f"experiment_{int(time())}",
+            config={                        # Track hyperparameters and metadata
+                
+                "learning_rate": self.initial_lr,
+                "epochs": self.num_epochs,
+            },
+        )
+
 
         ### Dealing with labels/regions
         self.label_manager = self.plans_manager.get_label_manager(dataset_json)
@@ -172,7 +209,9 @@ class nnUNetTrainer(object):
                              (timestamp.year, timestamp.month, timestamp.day, timestamp.hour, timestamp.minute,
                               timestamp.second))
         self.logger = nnUNetLogger()
-
+        #self.logger.my_fantastic_logging['hd95_per_class_or_region'] = []
+        self.logger.my_fantastic_logging['dice_per_class_or_region'] = []
+        self.logger.my_fantastic_logging['mean_fg_dice'] = []
         ### placeholders
         self.dataloader_train = self.dataloader_val = None  # see on_train_start
 
@@ -398,7 +437,29 @@ class nnUNetTrainer(object):
         else:
             loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
                                    'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                  ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+                                    ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+            #class_weights = torch.tensor([1.5, 1.0, 1.3], device='cuda')  # Increase weight for class 1
+            #loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
+                                    #{},
+                                    #weight_ce=1,
+                                    #weight_dice=1,
+                                    #ignore_label=self.label_manager.ignore_label,
+                                    #dice_class=MemoryEfficientSoftDiceLoss)
+            #loss = GDL_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
+                                    #{'k': self.kweight},  # Use top 50% hard predictions,
+                                    #weight_topk=1,
+                                    #weight_dice=1,
+                                    #ignore_label=self.label_manager.ignore_label)
+                                    #dice_class=MemoryEfficientSoftDiceLoss)    
+            #loss = GDL_topk_focal_loss(soft_dice_kwargs={'batch_dice': self.configuration_manager.batch_dice,'smooth': 1e-5,'do_bg': False,'ddp': self.is_ddp},
+                                    #ce_kwargs={'k': self.kweight},
+                                    #weight_ce=1.0,
+                                    #weight_dice=1.0,
+                                    #weight_focal=1.0,
+                                    #gamma=2.0,
+                                    #ignore_label=self.label_manager.ignore_label)
+
+
 
         if self._do_i_compile():
             loss.dc = torch.compile(loss.dc)
@@ -1013,7 +1074,8 @@ class nnUNetTrainer(object):
             loss_here = np.mean(outputs['loss'])
 
         self.logger.log('train_losses', loss_here, self.current_epoch)
-
+        wandb.log({'current epoch': self.current_epoch})
+        wandb.log({'train_losses': loss_here})
     def on_validation_epoch_start(self):
         self.network.eval()
 
@@ -1051,6 +1113,7 @@ class nnUNetTrainer(object):
             output_seg = output.argmax(1)[:, None]
             predicted_segmentation_onehot = torch.zeros(output.shape, device=output.device, dtype=torch.float32)
             predicted_segmentation_onehot.scatter_(1, output_seg, 1)
+
             del output_seg
 
         if self.label_manager.has_ignore_label:
@@ -1081,9 +1144,44 @@ class nnUNetTrainer(object):
             tp_hard = tp_hard[1:]
             fp_hard = fp_hard[1:]
             fn_hard = fn_hard[1:]
+        # -------- HD95 COMPUTATION START --------
+        num_classes = output.shape[1]
+        #print("classes" +str(num_classes))
+        target = target.squeeze(1)
+        gt_onehot = torch.nn.functional.one_hot(target.long(), num_classes).permute(0, 4, 1, 2, 3).float()
 
+        #pred_hd = predicted_segmentation_onehot[:, 1:].detach()
+        #gt_hd = gt_onehot[:, 1:].detach()
+        pred_hd = predicted_segmentation_onehot.detach()  # No slicing
+        gt_hd = gt_onehot.detach()  # No slicing    
+        #print(f"Predicted Segmentation Shape: {predicted_segmentation_onehot.shape}")
+        #print(f"Ground Truth Shape: {gt_onehot.shape}")
+        # Check if all classes are present in the predictions and ground truths
+        #print(f"Unique classes in predicted segmentation: {predicted_segmentation_onehot.argmax(dim=1).unique()}")
+        #print(f"Unique classes in ground truth: {target.unique()}")
+        #print(f"Pred HD Shape: {pred_hd.shape}")
+        #print(f"GT HD Shape: {gt_hd.shape}")
+        # Compute HD95 for each class
+        #for i in range(1, num_classes):
+            #pred_class = pred_hd[:, i:i+1]  # Extract each class from prediction
+            #gt_class = gt_hd[:, i:i+1]  # Extract each class from ground truth
+            #hd95_val = compute_hausdorff_distance(pred_class, gt_class, include_background=False,percentile=95.0,spacing = [1.0, 1.0, 1.0])
+            #print(f"HD95 for class {i}: {hd95_val}")
+        #data = batch['data']
+        #target = batch['target']
+        #target_spacing = batch['spacing']  # Retrieve target_spacing
+        #hd95_vals = compute_hausdorff_distance(
+            #pred_hd, gt_hd,
+            #include_background=False,
+            #percentile=95.0,
+            #spacing = [1.0, 1.0, 1.0]  # Replace with actual spacing if available
+        #)
+        #hd95_vals = hd95_vals.cpu().numpy()
+        
+        #print("hd95_vals"+ str(hd95_vals))
+        # -------- HD95 COMPUTATION END --------
+        #return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard,'hd95': hd95_vals}
         return {'loss': l.detach().cpu().numpy(), 'tp_hard': tp_hard, 'fp_hard': fp_hard, 'fn_hard': fn_hard}
-
     def on_validation_epoch_end(self, val_outputs: List[dict]):
         outputs_collated = collate_outputs(val_outputs)
         tp = np.sum(outputs_collated['tp_hard'], 0)
@@ -1111,11 +1209,42 @@ class nnUNetTrainer(object):
         else:
             loss_here = np.mean(outputs_collated['loss'])
 
+        if loss_here < self.best_val_loss:
+            self.best_val_loss = loss_here
+            self.best_val_epoch = self.epoch
+            wandb.log({'New best validation epoch:': self.best_val_epoch})
+            self.logger.log('New best validation epoch:', self.best_val_epoch)
+        wandb.log({'val_losses': loss_here})
+        for i, (dice_val) in enumerate(zip(clean_dice)):
+            wandb.log({
+                f'dice_class_{i}': dice_val,
+                #f'hd95_class_{i}': hd_val
+            })
         global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
+        clean_dice = [d for d in global_dc_per_class if not np.isnan(d)]
         mean_fg_dice = np.nanmean(global_dc_per_class)
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
         self.logger.log('val_losses', loss_here, self.current_epoch)
+
+        # -------- HD95 LOGGING START --------
+        #hd95_vals = np.vstack(outputs_collated['hd95'])  # shape: [N, C]
+        #print("collated hd95_vals" + str(hd95_vals))
+        #hd95_per_class = np.nanmean(hd95_vals, axis=0)
+        #print("hd95_per_class" + str(hd95_per_class))
+        #hd95_full = [np.nan] * 3 #'num_classes'
+        #ean_fg_hd95 = np.nanmean(hd95_per_class)
+        #for i, val in enumerate(hd95_per_class.tolist()):
+            # This assumes you get indices and values in a predictable order. If not, you’ll need mapping.
+            #hd95_full[i] = val
+
+            
+        #self.logger.log('mean_fg_hd95', mean_fg_hd95, self.current_epoch)
+        #self.logger.log('hd95_per_class_or_region', hd95_full, self.current_epoch)
+
+        
+        
+        # -------- HD95 LOGGING END --------
 
     def on_epoch_start(self):
         self.logger.log('epoch_start_timestamps', time(), self.current_epoch)
@@ -1127,12 +1256,17 @@ class nnUNetTrainer(object):
         self.print_to_log_file('val_loss', np.round(self.logger.my_fantastic_logging['val_losses'][-1], decimals=4))
         self.print_to_log_file('Pseudo dice', [np.round(i, decimals=4) for i in
                                                self.logger.my_fantastic_logging['dice_per_class_or_region'][-1]])
+        #self.print_to_log_file('HD95', [np.round(i, decimals=4) for i in
+                                               #self.logger.my_fantastic_logging['hd95_per_class_or_region'][-1]])
         self.print_to_log_file(
             f"Epoch time: {np.round(self.logger.my_fantastic_logging['epoch_end_timestamps'][-1] - self.logger.my_fantastic_logging['epoch_start_timestamps'][-1], decimals=2)} s")
 
         # handling periodic checkpointing
         current_epoch = self.current_epoch
         if (current_epoch + 1) % self.save_every == 0 and current_epoch != (self.num_epochs - 1):
+            #print("kweight was " + str(self.kweight))
+            #self.kweight=self.kweight*0.8
+            #print("kweight is " + str(self.kweight))
             self.save_checkpoint(join(self.output_folder, 'checkpoint_latest.pth'))
 
         # handle 'best' checkpointing. ema_fg_dice is computed by the logger and can be accessed like this
@@ -1147,6 +1281,7 @@ class nnUNetTrainer(object):
         self.current_epoch += 1
 
     def save_checkpoint(self, filename: str) -> None:
+
         if self.local_rank == 0:
             if not self.disable_checkpointing:
                 if self.is_ddp:
@@ -1381,3 +1516,10 @@ class nnUNetTrainer(object):
             self.on_epoch_end()
 
         self.on_train_end()
+        def finish_training(self):
+            super().finish_training()
+
+            if hasattr(self, 'wandb_run'):
+                self.wandb_run.finish()
+
+wandb.finish()
