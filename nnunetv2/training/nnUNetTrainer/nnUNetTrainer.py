@@ -1213,7 +1213,7 @@ class nnUNetTrainer(object):
             self.best_val_loss = loss_here
             self.best_val_epoch = self.current_epoch
             wandb.log({'New best validation epoch:': self.best_val_epoch})
-            self.logger.log('New best validation epoch:', self.best_val_epoch)
+            self.logger.log('New best validation epoch:', self.best_val_epoch, self.current_epoch)
         wandb.log({'val_losses': loss_here})
         for i, (dice_val) in enumerate(zip(clean_dice)):
             wandb.log({
