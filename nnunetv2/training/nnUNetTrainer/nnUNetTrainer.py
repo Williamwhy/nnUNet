@@ -1222,7 +1222,7 @@ class nnUNetTrainer(object):
 
         for i, (dice_val) in enumerate(zip(clean_dice)):
             wandb.log({
-                f'dice_class_{i}': dice_val,
+                f'dice_class_{i}': dice_val
                 #f'hd95_class_{i}': hd_val
             })
 
