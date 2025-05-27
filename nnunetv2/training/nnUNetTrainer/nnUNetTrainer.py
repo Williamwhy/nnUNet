@@ -1215,14 +1215,17 @@ class nnUNetTrainer(object):
             wandb.log({'New best validation epoch:': self.best_val_epoch})
             print(f'New best validation epoch: {self.best_val_epoch}')
         wandb.log({'val_losses': loss_here})
+        
+        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
+        clean_dice = [d for d in global_dc_per_class if not np.isnan(d)]
+        mean_fg_dice = np.nanmean(global_dc_per_class)
+
         for i, (dice_val) in enumerate(zip(clean_dice)):
             wandb.log({
                 f'dice_class_{i}': dice_val,
                 #f'hd95_class_{i}': hd_val
             })
-        global_dc_per_class = [i for i in [2 * i / (2 * i + j + k) for i, j, k in zip(tp, fp, fn)]]
-        clean_dice = [d for d in global_dc_per_class if not np.isnan(d)]
-        mean_fg_dice = np.nanmean(global_dc_per_class)
+
         self.logger.log('mean_fg_dice', mean_fg_dice, self.current_epoch)
         self.logger.log('dice_per_class_or_region', global_dc_per_class, self.current_epoch)
         self.logger.log('val_losses', loss_here, self.current_epoch)
@@ -1241,8 +1244,6 @@ class nnUNetTrainer(object):
             
         #self.logger.log('mean_fg_hd95', mean_fg_hd95, self.current_epoch)
         #self.logger.log('hd95_per_class_or_region', hd95_full, self.current_epoch)
-
-        
         
         # -------- HD95 LOGGING END --------
 
