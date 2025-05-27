@@ -1211,7 +1211,7 @@ class nnUNetTrainer(object):
 
         if loss_here < self.best_val_loss:
             self.best_val_loss = loss_here
-            self.best_val_epoch = self.epoch
+            self.best_val_epoch = self.current_epoch
             wandb.log({'New best validation epoch:': self.best_val_epoch})
             self.logger.log('New best validation epoch:', self.best_val_epoch)
         wandb.log({'val_losses': loss_here})
