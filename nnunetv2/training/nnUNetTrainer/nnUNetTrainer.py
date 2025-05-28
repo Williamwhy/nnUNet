@@ -180,7 +180,7 @@ class nnUNetTrainer(object):
         run = wandb.init(
             project="nnUnetBaseline_Dice_Epoch20-140",  # Specify your project
                   # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
-            name = f"experiment_{int(time())}",
+            name = f"nnUNet_{int(time())}",
             config={                        # Track hyperparameters and metadata
                 
                 "learning_rate": self.initial_lr,
