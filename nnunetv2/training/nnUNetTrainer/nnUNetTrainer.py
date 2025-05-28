@@ -171,14 +171,14 @@ class nnUNetTrainer(object):
         self.probabilistic_oversampling = False
         self.num_iterations_per_epoch = 250
         self.num_val_iterations_per_epoch = 50
-        self.num_epochs = 20
+        self.num_epochs = 2
         self.current_epoch = 0
         self.enable_deep_supervision = True
         self.kweight = 10
         
         wandb.login(key="f0ca71ae6912c78891567a52c333cd3f61a8749a")
         run = wandb.init(
-            project="nnUnetBaseline_Epoch0-20",  # Specify your project
+            project="nnUnetBaseline_DiceReporting Test",  # Specify your project
                   # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
             name = f"experiment_{int(time())}",
             config={                        # Track hyperparameters and metadata
@@ -1222,7 +1222,7 @@ class nnUNetTrainer(object):
 
         for i, (dice_val) in enumerate(zip(clean_dice)):
             wandb.log({
-                f'dice_class_{i}': dice_val
+                f'dice_class_{i}': dice_val[0]
                 #f'hd95_class_{i}': hd_val
             })
 
