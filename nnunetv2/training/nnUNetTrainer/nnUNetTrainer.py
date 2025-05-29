@@ -178,7 +178,7 @@ class nnUNetTrainer(object):
         
         wandb.login(key="f0ca71ae6912c78891567a52c333cd3f61a8749a")
         run = wandb.init(
-            project="nnUnetBaseline_Dice_Epoch57-120",  # Specify your project
+            project="nnUnetBaseline_Dice_Epoch50-120",  # Specify your project
                   # We pass a run name (otherwise it’ll be randomly assigned, like sunshine-lollypop-10)
             name = f"nnUNet_{int(time())}",
             config={                        # Track hyperparameters and metadata
@@ -223,7 +223,7 @@ class nnUNetTrainer(object):
         # self.configure_rotation_dummyDA_mirroring_and_inital_patch_size and will be saved in checkpoints
 
         ### checkpoint saving stuff
-        self.save_every = 10
+        self.save_every = 2
         self.disable_checkpointing = False
 
         self.was_initialized = False
