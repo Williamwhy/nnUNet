@@ -8,10 +8,24 @@ class Cascade_Trainer(nnUNetTrainer):
         self.pretrained_weights = None  # default
         print("✅ Cascade_Trainer initialized!")
 
-    def initialize_network(self):
-        super().initialize_network()
+    def initialize(self):
+        # Call base initialize if exists, or define your own network init here
+        if hasattr(super(), 'initialize'):
+            super().initialize()
+        else:
+            # fallback: create the network here if needed
+            self.initialize_network_fallback()
+
+        # Now load pretrained weights if any
         if self.pretrained_weights is not None:
             self.load_pretrained_weights(self.pretrained_weights)
+            
+    def initialize_network_fallback(self):
+        # Define network initialization if no base method exists
+        print("⚠️ Network initialization fallback called - implement network creation here.")
+        # Example (adapt for your network):
+        # self.network = SomeNetworkClass(...)
+        pass
 
     def load_pretrained_weights(self, pretrained_weights):
         if not os.path.isfile(pretrained_weights):
