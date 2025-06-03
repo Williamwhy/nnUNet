@@ -3,9 +3,9 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import os
 
 class Cascade_Trainer(nnUNetTrainer):
-    def __init__(self, plans, configuration, fold, dataset_json, device, pretrained_weights=None):
+    def __init__(self, plans, configuration, fold, dataset_json, device):
         super().__init__(plans, configuration, fold, dataset_json, device)
-        self.pretrained_weights = pretrained_weights
+        self.pretrained_weights = None  # default
         print("✅ Cascade_Trainer initialized!")
 
     def initialize_network(self):
