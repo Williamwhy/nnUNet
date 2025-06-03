@@ -9,22 +9,16 @@ class Cascade_Trainer(nnUNetTrainer):
         print("✅ Cascade_Trainer initialized!")
 
     def initialize(self):
-        # Call base initialize if exists, or define your own network init here
         if hasattr(super(), 'initialize'):
             super().initialize()
         else:
-            # fallback: create the network here if needed
             self.initialize_network_fallback()
 
-        # Now load pretrained weights if any
         if self.pretrained_weights is not None:
             self.load_pretrained_weights(self.pretrained_weights)
             
     def initialize_network_fallback(self):
-        # Define network initialization if no base method exists
         print("⚠️ Network initialization fallback called - implement network creation here.")
-        # Example (adapt for your network):
-        # self.network = SomeNetworkClass(...)
         pass
 
     def load_pretrained_weights(self, pretrained_weights):
@@ -33,7 +27,7 @@ class Cascade_Trainer(nnUNetTrainer):
             return
 
         print(f"✅ Loading pretrained weights from: {pretrained_weights}")
-        checkpoint = torch.load(pretrained_weights, map_location=self.device)
+        checkpoint = torch.load(pretrained_weights, map_location=self.device, weights_only=False)
         pretrained_weights = checkpoint.get('network_weights', checkpoint)
 
         current_weights = self.network.state_dict()
