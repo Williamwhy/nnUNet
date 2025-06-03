@@ -37,3 +37,22 @@ class Cascade_Trainer(nnUNetTrainer):
         current_weights.update(matched_weights)
         self.network.load_state_dict(current_weights)
         print(f"🔁 Loaded {len(matched_weights)} layers from pretrained model")
+
+    def load_full_checkpoint(self, checkpoint_path):
+        if not os.path.isfile(checkpoint_path):
+            print(f"❌ Checkpoint not found at: {checkpoint_path}")
+            return
+        print(f"✅ Loading full checkpoint from: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        self.network.load_state_dict(checkpoint['network_weights'])
+
+        if 'optimizer_state' in checkpoint and self.optimizer is not None:
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+        if 'lr_scheduler' in checkpoint and hasattr(self, 'lr_scheduler'):
+            self.lr_scheduler.load_state_dict(checkpoint['lr_scheduler'])
+        if 'epoch' in checkpoint:
+            self.epoch = checkpoint['epoch']
+        if 'iteration' in checkpoint:
+            self.iteration = checkpoint['iteration']
+
+        print("🔁 Loaded full checkpoint (weights + optimizer + scheduler + counters)")
