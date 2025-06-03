@@ -43,7 +43,7 @@ class Cascade_Trainer(nnUNetTrainer):
             print(f"❌ Checkpoint not found at: {checkpoint_path}")
             return
         print(f"✅ Loading full checkpoint from: {checkpoint_path}")
-        checkpoint = torch.load(checkpoint_path, map_location=self.device)
+        checkpoint = torch.load(checkpoint_path, map_location=self.device, weights_only=False)
         self.network.load_state_dict(checkpoint['network_weights'])
 
         if 'optimizer_state' in checkpoint and self.optimizer is not None:
