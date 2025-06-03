@@ -3,7 +3,7 @@ from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import os
 
 
-class CascadedTrainer(nnUNetTrainer):
+class Cascade_Trainer(nnUNetTrainer):
     def __init__(self, *args, pretrained_weights=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.pretrained_weights = pretrained_weights
