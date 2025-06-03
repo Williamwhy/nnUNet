@@ -4,9 +4,12 @@ import os
 
 
 class Cascade_Trainer(nnUNetTrainer):
-    def __init__(self, *args, pretrained_weights=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.pretrained_weights = pretrained_weights
+    def __init__(self, plans, configuration, fold, dataset_json, device, **kwargs):
+        print("Cascade_Trainer initialized!")
+        super().__init__(plans, configuration, fold, dataset_json, device, **kwargs)
+
+        # Optional: store pretrained weights (use later for loading)
+        self.pretrained_weights = kwargs.get("pretrained_weights", None)
 
     def initialize_network(self):
         super().initialize_network()
