@@ -2,14 +2,11 @@ import torch
 from nnunetv2.training.nnUNetTrainer.nnUNetTrainer import nnUNetTrainer
 import os
 
-
 class Cascade_Trainer(nnUNetTrainer):
-    def __init__(self, plans, configuration, fold, dataset_json, device, **kwargs):
-        print("Cascade_Trainer initialized!")
-        super().__init__(plans, configuration, fold, dataset_json, device, **kwargs)
-
-        # Optional: store pretrained weights (use later for loading)
-        self.pretrained_weights = kwargs.get("pretrained_weights", None)
+    def __init__(self, plans, configuration, fold, dataset_json, device, pretrained_weights=None):
+        super().__init__(plans, configuration, fold, dataset_json, device)
+        self.pretrained_weights = pretrained_weights
+        print("✅ Cascade_Trainer initialized!")
 
     def initialize_network(self):
         super().initialize_network()
@@ -22,7 +19,7 @@ class Cascade_Trainer(nnUNetTrainer):
             return
 
         print(f"✅ Loading pretrained weights from: {pretrained_weights}")
-        checkpoint = torch.load(pretrained_weights, map_location='cpu')
+        checkpoint = torch.load(pretrained_weights, map_location=self.device)
         pretrained_weights = checkpoint.get('network_weights', checkpoint)
 
         current_weights = self.network.state_dict()
@@ -33,6 +30,9 @@ class Cascade_Trainer(nnUNetTrainer):
                 matched_weights[k] = v
             else:
                 print(f"Skipping layer: {k} (shape mismatch or not found)")
+
+        if not matched_weights:
+            print("⚠️ No matching layers found. Make sure architectures are compatible.")
 
         current_weights.update(matched_weights)
         self.network.load_state_dict(current_weights)
