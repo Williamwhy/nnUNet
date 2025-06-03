@@ -4,22 +4,22 @@ import os
 
 
 class CascadedTrainer(nnUNetTrainer):
-    def __init__(self, *args, pretrained_path=None, **kwargs):
+    def __init__(self, *args, pretrained_weights=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pretrained_path = pretrained_path
+        self.pretrained_weights = pretrained_weights
 
     def initialize_network(self):
         super().initialize_network()
-        if self.pretrained_path is not None:
-            self.load_pretrained_weights(self.pretrained_path)
+        if self.pretrained_weights is not None:
+            self.load_pretrained_weights(self.pretrained_weights)
 
-    def load_pretrained_weights(self, pretrained_path):
-        if not os.path.isfile(pretrained_path):
-            print(f"❌ Pretrained checkpoint not found at: {pretrained_path}")
+    def load_pretrained_weights(self, pretrained_weights):
+        if not os.path.isfile(pretrained_weights):
+            print(f"❌ Pretrained checkpoint not found at: {pretrained_weights}")
             return
 
-        print(f"✅ Loading pretrained weights from: {pretrained_path}")
-        checkpoint = torch.load(pretrained_path, map_location='cpu')
+        print(f"✅ Loading pretrained weights from: {pretrained_weights}")
+        checkpoint = torch.load(pretrained_weights, map_location='cpu')
         pretrained_weights = checkpoint.get('network_weights', checkpoint)
 
         current_weights = self.network.state_dict()
