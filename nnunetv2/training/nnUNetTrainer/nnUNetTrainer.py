@@ -55,9 +55,9 @@ from nnunetv2.training.data_augmentation.compute_initial_patch_size import get_p
 from nnunetv2.training.dataloading.nnunet_dataset import infer_dataset_class
 from nnunetv2.training.dataloading.data_loader import nnUNetDataLoader
 from nnunetv2.training.logging.nnunet_logger import nnUNetLogger
-from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss #GDL_and_topk_loss, GDL_topk_focal_loss
+from nnunetv2.training.loss.compound_losses import DC_and_CE_loss, DC_and_BCE_loss, GDL_and_topk_loss, GDL_topk_focal_loss
 from nnunetv2.training.loss.deep_supervision import DeepSupervisionWrapper
-from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss # MemoryEfficientGeneralizedDiceLoss
+from nnunetv2.training.loss.dice import get_tp_fp_fn_tn, MemoryEfficientSoftDiceLoss, MemoryEfficientGeneralizedDiceLoss
 from nnunetv2.training.lr_scheduler.polylr import PolyLRScheduler
 from nnunetv2.utilities.collate_outputs import collate_outputs
 from nnunetv2.utilities.crossval_split import generate_crossval_split
@@ -435,9 +435,9 @@ class nnUNetTrainer(object):
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
         else:
-            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                    ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+            #loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                   #'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                    #ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
             #class_weights = torch.tensor([1.5, 1.0, 1.3], device='cuda')  # Increase weight for class 1
             #loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
                                     #{},
@@ -445,12 +445,12 @@ class nnUNetTrainer(object):
                                     #weight_dice=1,
                                     #ignore_label=self.label_manager.ignore_label,
                                     #dice_class=MemoryEfficientSoftDiceLoss)
-            #loss = GDL_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
-                                    #{'k': self.kweight},  # Use top 50% hard predictions,
+            loss = GDL_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
+                                    {'k': self.kweight},  # Use top 10% hard predictions,
                                     #weight_topk=1,
                                     #weight_dice=1,
-                                    #ignore_label=self.label_manager.ignore_label)
-                                    #dice_class=MemoryEfficientSoftDiceLoss)    
+                                    ignore_label=self.label_manager.ignore_label),
+                                    dice_class=MemoryEfficientSoftDiceLoss)    
             #loss = GDL_topk_focal_loss(soft_dice_kwargs={'batch_dice': self.configuration_manager.batch_dice,'smooth': 1e-5,'do_bg': False,'ddp': self.is_ddp},
                                     #ce_kwargs={'k': self.kweight},
                                     #weight_ce=1.0,
