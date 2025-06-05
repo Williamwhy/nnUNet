@@ -5,6 +5,7 @@ from nnunetv2.utilities.ddp_allgather import AllGatherGrad
 from torch import nn
 
 
+
 class SoftDiceLoss(nn.Module):
     def __init__(self, apply_nonlin: Callable = None, batch_dice: bool = False, do_bg: bool = True, smooth: float = 1.,
                  ddp: bool = True, clip_tp: float = None):
@@ -118,7 +119,70 @@ class MemoryEfficientSoftDiceLoss(nn.Module):
         dc = dc.mean()
         return -dc
 
+class MemoryEfficientGeneralizedDiceLoss(nn.Module):
+    def __init__(self, apply_nonlin: Callable = None, do_bg: bool = True, batch_dice: bool = False,
+                 smooth: float = 1., ddp: bool = True):
+        """
+        Generalized Dice Loss with optional batch reduction and DDP support.
+        """
+        super().__init__()
+        self.apply_nonlin = apply_nonlin
+        self.do_bg = do_bg
+        self.batch_dice = batch_dice
+        self.smooth = smooth
+        self.ddp = ddp
 
+    def forward(self, x, y, loss_mask=None):
+        if self.apply_nonlin is not None:
+            x = self.apply_nonlin(x)
+
+        axes = tuple(range(2, x.ndim))  # spatial dims
+
+        if x.ndim != y.ndim:
+            y = y.view((y.shape[0], 1, *y.shape[1:]))
+
+        if x.shape == y.shape:
+            y_onehot = y
+        else:
+            y_onehot = torch.zeros_like(x, dtype=torch.bool)
+            y_onehot.scatter_(1, y.long(), 1)
+
+        if not self.do_bg:
+            x = x[:, 1:]
+            y_onehot = y_onehot[:, 1:]
+
+        if loss_mask is not None:
+            x = x * loss_mask
+            y_onehot = y_onehot * loss_mask
+
+        intersect = (x * y_onehot).sum(axes)  # [B, C]
+        sum_pred = x.sum(axes)                # [B, C]
+        sum_gt = y_onehot.sum(axes)           # [B, C]
+
+        if self.batch_dice:
+            if self.ddp:
+                intersect = AllGatherGrad.apply(intersect).sum(0)
+                sum_pred = AllGatherGrad.apply(sum_pred).sum(0)
+                sum_gt = AllGatherGrad.apply(sum_gt).sum(0)
+            else:
+                intersect = intersect.sum(0)  # [C]
+                sum_pred = sum_pred.sum(0)
+                sum_gt = sum_gt.sum(0)
+
+            weights = 1.0 / (sum_gt ** 2 + self.smooth)
+            numerator = 2 * (weights * intersect).sum()
+            denominator = (weights * (sum_pred + sum_gt)).sum()
+            gdl = 1 - numerator / (denominator + self.smooth)
+
+        else:
+            # Per-sample GDL
+            weights = 1.0 / (sum_gt ** 2 + self.smooth)  # [B, C]
+            numerator = 2 * (weights * intersect).sum(dim=1)  # [B]
+            denominator = (weights * (sum_pred + sum_gt)).sum(dim=1)  # [B]
+            gdl = 1 - (numerator / (denominator + self.smooth)).mean()
+
+        return gdl
+    
 def get_tp_fp_fn_tn(net_output, gt, axes=None, mask=None, square=False):
     """
     net_output must be (b, c, x, y(, z)))
