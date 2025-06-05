@@ -449,8 +449,8 @@ class nnUNetTrainer(object):
                                     {'k': self.kweight},  # Use top 10% hard predictions,
                                     #weight_topk=1,
                                     #weight_dice=1,
-                                    ignore_label=self.label_manager.ignore_label),
-                                    dice_class=MemoryEfficientSoftDiceLoss)    
+                                    ignore_label=self.label_manager.ignore_label)
+                                    #dice_class=MemoryEfficientSoftDiceLoss)    
             #loss = GDL_topk_focal_loss(soft_dice_kwargs={'batch_dice': self.configuration_manager.batch_dice,'smooth': 1e-5,'do_bg': False,'ddp': self.is_ddp},
                                     #ce_kwargs={'k': self.kweight},
                                     #weight_ce=1.0,
