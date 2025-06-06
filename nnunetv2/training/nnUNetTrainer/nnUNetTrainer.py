@@ -435,9 +435,9 @@ class nnUNetTrainer(object):
                                    use_ignore_label=self.label_manager.ignore_label is not None,
                                    dice_class=MemoryEfficientSoftDiceLoss)
         else:
-            #loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
-                                   #'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
-                                    #ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
+            loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice,
+                                   'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp}, {}, weight_ce=1, weight_dice=1,
+                                    ignore_label=self.label_manager.ignore_label, dice_class=MemoryEfficientSoftDiceLoss)
             #class_weights = torch.tensor([1.5, 1.0, 1.3], device='cuda')  # Increase weight for class 1
             #loss = DC_and_CE_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
                                     #{},
@@ -445,11 +445,11 @@ class nnUNetTrainer(object):
                                     #weight_dice=1,
                                     #ignore_label=self.label_manager.ignore_label,
                                     #dice_class=MemoryEfficientSoftDiceLoss)
-            loss = GDL_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
-                                    {'k': self.kweight},  # Use top 10% hard predictions,
+            #loss = GDL_and_topk_loss({'batch_dice': self.configuration_manager.batch_dice, 'smooth': 1e-5, 'do_bg': False, 'ddp': self.is_ddp},
+                                    #{'k': self.kweight},  # Use top 10% hard predictions,
                                     #weight_topk=1,
                                     #weight_dice=1,
-                                    ignore_label=self.label_manager.ignore_label)
+                                    #ignore_label=self.label_manager.ignore_label)
                                     #dice_class=MemoryEfficientSoftDiceLoss)    
             #loss = GDL_topk_focal_loss(soft_dice_kwargs={'batch_dice': self.configuration_manager.batch_dice,'smooth': 1e-5,'do_bg': False,'ddp': self.is_ddp},
                                     #ce_kwargs={'k': self.kweight},
