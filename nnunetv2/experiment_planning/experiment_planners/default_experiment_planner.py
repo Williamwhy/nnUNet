@@ -256,7 +256,7 @@ class ExperimentPlanner(object):
         # ideal because large initial patch sizes increase computation time because more iterations in the while loop
         # further down may be required.
         if len(spacing) == 3:
-            initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]/2
+            initial_patch_size = [round(i) for i in tmp * (256 ** 3 / np.prod(tmp)) ** (1 / 3)]/
         elif len(spacing) == 2:
             initial_patch_size = [round(i) for i in tmp * (2048 ** 2 / np.prod(tmp)) ** (1 / 2)]
         else:
@@ -330,7 +330,8 @@ class ExperimentPlanner(object):
             # (224 / 2**5 = 7; 7 < 2 * self.UNet_featuremap_min_edge_length(4) so it's valid). So we need to first
             # subtract shape_must_be_divisible_by, then recompute it and then subtract the
             # recomputed shape_must_be_divisible_by. Annoying.
-            patch_size = list(patch_size)
+            #patch_size = list(patch_size)
+            patch_size = (np.array(patch_size) // 2).tolist()
             tmp = deepcopy(patch_size)
             tmp[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
             _, _, _, _, shape_must_be_divisible_by = \
