@@ -270,8 +270,8 @@ class ExperimentPlanner(object):
         # Step 2: Aggressively scale down patch size (e.g., by 0.5)
         scaling_factor = 0.5
         initial_patch_size = np.array([
-            max(self.UNet_featuremap_min_edge_length, int(p * scaling_factor))
-            for p in initial_patch_size
+            max(self.UNet_featuremap_min_edge_length, int(p * scaling_factor))
+            for p in initial_patch_size
         ])
 
         # use that to get the network topology. Note that this changes the patch_size depending on the number of
