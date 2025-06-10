@@ -472,7 +472,7 @@ class ExperimentPlanner(object):
                 print(f'Dropping 3d_lowres config because the image size difference to 3d_fullres is too small. '
                       f'3d_fullres: {new_median_shape_transposed}, '
                       f'3d_lowres: {[round(i) for i in plan_3d_fullres["spacing"] / lowres_spacing * new_median_shape_transposed]}')
-                #plan_3d_lowres = None
+                plan_3d_lowres = None
             if plan_3d_lowres is not None:
                 plan_3d_lowres['batch_dice'] = False
                 plan_3d_fullres['batch_dice'] = True
