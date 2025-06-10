@@ -266,6 +266,13 @@ class ExperimentPlanner(object):
         # this is different from how nnU-Net v1 does it!
         # todo patch size can still get too large because we pad the patch size to a multiple of 2**n
         initial_patch_size = np.array([min(i, j) for i, j in zip(initial_patch_size, median_shape[:len(spacing)])])
+        
+        # Step 2: Aggressively scale down patch size (e.g., by 0.5)
+        scaling_factor = 0.5
+        initial_patch_size = np.array([
+            max(self.UNet_featuremap_min_edge_length, int(p * scaling_factor))
+            for p in initial_patch_size
+        ])
 
         # use that to get the network topology. Note that this changes the patch_size depending on the number of
         # pooling operations (must be divisible by 2**num_pool in each axis)
@@ -330,8 +337,7 @@ class ExperimentPlanner(object):
             # (224 / 2**5 = 7; 7 < 2 * self.UNet_featuremap_min_edge_length(4) so it's valid). So we need to first
             # subtract shape_must_be_divisible_by, then recompute it and then subtract the
             # recomputed shape_must_be_divisible_by. Annoying.
-            #patch_size = list(patch_size)
-            patch_size = (np.array(patch_size) // 2).tolist()
+            patch_size = list(patch_size)
             tmp = deepcopy(patch_size)
             tmp[axis_to_be_reduced] -= shape_must_be_divisible_by[axis_to_be_reduced]
             _, _, _, _, shape_must_be_divisible_by = \
