@@ -70,6 +70,11 @@ from nnunetv2.utilities.plans_handling.plans_handler import PlansManager
 #from nnunetv2.training.loss.combined_loss import DiceCELossHD
 #from monai.metrics import compute_hausdorff_distance
 from nnunetv2.utilities.plans_handling.plans_handler import PlansManager, ConfigurationManager
+from custom_transforms.SSA_augmentations import (
+    SimulateIntensityStriping,
+    DownsampleUpsampleZ,
+    RandomGamma
+)
 # At the top of your trainer.py file
 #from nnunetv2.preprocessing.preprocessors import configuration_manager
 configuration_manager= ConfigurationManager
@@ -707,6 +712,10 @@ class nnUNetTrainer(object):
             is_cascaded=self.is_cascaded, foreground_labels=self.label_manager.foreground_labels,
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
+        
+        tr_transforms.transforms.append(0, SimulateIntensityStriping(prob=0.3))
+        tr_transforms.transforms.append(1, DownsampleUpsampleZ(prob=0.3, factor=2))
+        tr_transforms.transforms.append(2, RandomGamma(prob=0.3))
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
