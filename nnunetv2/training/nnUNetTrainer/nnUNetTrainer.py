@@ -713,9 +713,9 @@ class nnUNetTrainer(object):
             regions=self.label_manager.foreground_regions if self.label_manager.has_regions else None,
             ignore_label=self.label_manager.ignore_label)
         
-        tr_transforms.transforms.append(0, SimulateIntensityStriping(prob=0.3))
-        tr_transforms.transforms.append(1, DownsampleUpsampleZ(prob=0.3, factor=2))
-        tr_transforms.transforms.append(2, RandomGamma(prob=0.3))
+        tr_transforms.transforms.append(0, SimulateIntensityStriping(prob=0.15), exclude_channels=[2,3])
+        tr_transforms.transforms.append(1, DownsampleUpsampleZ(prob=0.54, factor=5, exclude_channels=[1]))
+        tr_transforms.transforms.append(2, RandomGamma(prob=0.6))
 
         # validation pipeline
         val_transforms = self.get_validation_transforms(deep_supervision_scales,
