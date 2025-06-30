@@ -4,17 +4,24 @@ import numpy as np
 import scipy.ndimage as ndi
 
 class SimulateIntensityStriping:
-    def __init__(self, prob=0.3, axis=2, frequency=20, amplitude=0.1, pattern='sin'):
+    def __init__(self, prob=0.3, axis=0, frequency=10, amplitude=0.2, pattern='sin', exclude_channels=[2,3]):
+        """
+        exclude_channels: list of channel indices NOT to apply striping to
+        """
         self.prob = prob
         self.axis = axis
         self.frequency = frequency
         self.amplitude = amplitude
         self.pattern = pattern
+        self.exclude_channels = exclude_channels or []
 
     def __call__(self, data_dict):
         if np.random.rand() < self.prob:
             img = data_dict["data"]
             for c in range(img.shape[0]):
+                if c in self.exclude_channels:
+                    continue
+
                 shape = img.shape[1:]  # (X, Y, Z)
                 coords = np.arange(shape[self.axis])
                 if self.pattern == 'sin':
@@ -28,8 +35,11 @@ class SimulateIntensityStriping:
                 stripe_pattern = stripe_pattern.reshape(shape_expand)
 
                 img[c] = img[c] * (1 + self.amplitude * stripe_pattern)
+
             data_dict["data"] = img
+
         return data_dict
+
 
 
 class DownsampleUpsampleZ:
