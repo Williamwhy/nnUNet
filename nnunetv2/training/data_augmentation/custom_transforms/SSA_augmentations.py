@@ -4,7 +4,7 @@ import numpy as np
 import scipy.ndimage as ndi
 
 class SimulateIntensityStriping:
-    def __init__(self, prob=0.3, axis=0, frequency=10, amplitude=0.2, pattern='sin'):
+    def __init__(self, prob=0.3, axis=2, frequency=20, amplitude=0.1, pattern='sin'):
         self.prob = prob
         self.axis = axis
         self.frequency = frequency
@@ -33,14 +33,20 @@ class SimulateIntensityStriping:
 
 
 class DownsampleUpsampleZ:
-    def __init__(self, prob=0.3, factor=2):
+    def __init__(self, prob=0.3, factor=5, exclude_channels=[1]):
+        """
+        exclude_channels: list of channel indices NOT to apply downsampling to
+        """
         self.prob = prob
         self.factor = factor
+        self.exclude_channels = exclude_channels or []
 
     def __call__(self, data_dict):
         if np.random.rand() < self.prob:
             img = data_dict["data"]
             for c in range(img.shape[0]):
+                if c in self.exclude_channels:
+                    continue
                 zoom_down = (1, 1, 1 / self.factor)
                 zoom_up = (1, 1, self.factor)
                 lowres = ndi.zoom(img[c], zoom_down, order=1)
@@ -49,8 +55,9 @@ class DownsampleUpsampleZ:
         return data_dict
 
 
+
 class RandomGamma:
-    def __init__(self, prob=0.3, gamma_range=(0.8, 1.2)):
+    def __init__(self, prob=0.3, gamma_range=(0.3, 1.7)):
         self.prob = prob
         self.gamma_range = gamma_range
 
