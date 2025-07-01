@@ -5,7 +5,7 @@ from multiprocessing import Pool
 from typing import Union, Tuple, List, Callable
 
 import numpy as np
-from acvl_utils.morphology.morphology_helper import remove_all_but_largest_component
+from acvl_utils.morphology.morphology_helper import remove_all_but_largest_component, get_components_with_sizes
 from batchgenerators.utilities.file_and_folder_operations import load_json, subfiles, maybe_mkdir_p, join, isfile, \
     isdir, save_pickle, load_pickle, save_json
 from nnunetv2.configuration import default_num_processes
@@ -331,8 +331,39 @@ def entry_point_apply_postprocessing():
     args = parser.parse_args()
     pp_fns, pp_fn_kwargs = load_pickle(args.pp_pkl_file)
     apply_postprocessing_to_folder(args.i, args.o, pp_fns, pp_fn_kwargs, args.plans_json, args.dataset_json, args.np)
+    
+def remove_components_smaller_than(segmentation: np.ndarray,
+                                   labels_or_regions: Union[int, Tuple[int, ...], List[Union[int, Tuple[int, ...]]]],
+                                   min_size: int = 10,
+                                   background_label: int = 0) -> np.ndarray:
+    mask = np.zeros_like(segmentation, dtype=bool)
+    if not isinstance(labels_or_regions, list):
+        labels_or_regions = [labels_or_regions]
+    for l_or_r in labels_or_regions:
+        mask |= region_or_label_to_mask(segmentation, l_or_r)
 
+    # Extract connected components
+    mask_cc, num_cc = get_components_with_sizes(mask.astype(np.uint8), connectivity=1)
+    ret = np.copy(segmentation)
+    for cc_label in range(1, num_cc + 1):
+        cc_mask = mask_cc == cc_label
+        if cc_mask.sum() < min_size:
+            ret[cc_mask] = background_label
+    return ret
+                                       
+def apply_softmax_threshold(segmentation: np.ndarray,
+                            softmax_file: str,
+                            thresholds: Union[float, List[float]]) -> np.ndarray:
+    softmax = np.load(softmax_file)['softmax']
+    if isinstance(thresholds, float):
+        thresholds = [thresholds] * softmax.shape[0]
 
+    seg = np.zeros_like(softmax[0], dtype=np.uint8)
+    for c, thr in enumerate(thresholds):
+        seg[(softmax[c] >= thr) & (softmax[c] >= softmax.max(0))] = c
+
+    return seg
+                                
 if __name__ == '__main__':
     trained_model_folder = '/home/fabian/results/nnUNet_remake/Dataset004_Hippocampus/nnUNetTrainer__nnUNetPlans__3d_fullres'
     labelstr = join(nnUNet_raw, 'Dataset004_Hippocampus', 'labelsTr')
